@@ -1,77 +1,77 @@
 ---
 name: bash2zsh
-description: 将用户环境从 Bash 迁移到 Zsh with Oh-My-Zsh，包括安装配置、插件优化、补全设置、nerdctl 支持等。当用户提到安装 zsh、迁移 bashrc、配置 oh-my-zsh、zsh 插件、nerdctl 补全时使用。
+description: Migrates user environment from Bash to Zsh with Oh-My-Zsh, including installation, plugin optimization, completion setup, and nerdctl support. Use when user mentions installing zsh, migrating bashrc, configuring oh-my-zsh, zsh plugins, or nerdctl completion.
 ---
 
-# Bash to Zsh 迁移助手
+# Bash to Zsh Migration Assistant
 
-## 工作流程
+## Workflow
 
-### Step 1: 检查当前环境
+### Step 1: Check Current Environment
 
 ```bash
-# 检查 zsh 是否已安装
+# Check if zsh is installed
 which zsh && zsh --version
 
-# 检查 oh-my-zsh 是否已安装
-ls ~/.oh-my-zsh 2>/dev/null && echo "已安装" || echo "未安装"
+# Check if oh-my-zsh is installed
+ls ~/.oh-my-zsh 2>/dev/null && echo "Installed" || echo "Not installed"
 ```
 
-### Step 2: 安装 Oh-My-Zsh（如未安装）
+### Step 2: Install Oh-My-Zsh (if not installed)
 
 ```bash
 sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 ```
 
-### Step 3: 询问用户迁移配置
+### Step 3: Ask User About Configuration Migration
 
-**询问用户是否迁移现有 .bashrc 配置**，包括：
-- Go 环境变量 (GOROOT, GOPATH, GOMODCACHE)
-- PATH 配置
-- 常用别名
-- Claude Code / API 配置
-- Containerd / kubectl / nerdctl 配置
+**Ask user whether to migrate existing .bashrc configuration**, including:
+- Go environment variables (GOROOT, GOPATH, GOMODCACHE)
+- PATH configuration
+- Common aliases
+- Claude Code / API configuration
+- Containerd / kubectl / nerdctl configuration
 
-**示例交互**：
+**Example interaction**:
 ```
-是否迁移以下配置？
-- Go 环境变量: GOROOT, GOPATH
-- PATH: /home/hurl, /home/zarf-dir, /root/buildkit 等
-- 别名: ll, la, l, vi, kge, ctr, nerdctl
-- API 配置: ANTHROPIC_*, DeepSeek 模型
+Should we migrate the following configuration?
+- Go environment variables: GOROOT, GOPATH
+- PATH: /home/hurl, /home/zarf-dir, /root/buildkit, etc.
+- Aliases: ll, la, l, vi, kge, ctr, nerdctl
+- API config: ANTHROPIC_*, DeepSeek models
 ```
 
-### Step 4: 配置插件
+### Step 4: Configure Plugins
 
-**推荐插件**：
+**Recommended plugins**:
 ```zsh
 plugins=(git docker kubectl golang ansible archlinux)
 ```
 
-**不建议使用的插件**（名称错误）：
-- ❌ `k8s` → 应使用 `kubectl`
-- ❌ `go` → 应使用 `golang`
+**Plugins not recommended** (incorrect names):
+- ❌ `k8s` → should use `kubectl`
+- ❌ `go` → should use `golang`
 
-### Step 5: 第三方工具补全配置
+### Step 5: Third-Party Tool Completion Configuration
 
-#### 通用检测流程
+#### General Detection Process
 
-对于**非 oh-my-zsh 内置**的工具（如 nerdctl、helm、flux 等），按以下流程处理：
+For tools **not built into oh-my-zsh** (such as nerdctl, helm, flux, etc.), follow this process:
 
 ```bash
-# 1. 检测工具是否已安装
+# 1. Check if tool is installed
 which <tool> && <tool> version
 
-# 2. 如果已安装，询问用户是否配置 zsh 补全
-# 3. 如果用户同意，检查是否支持 zsh 补全
-<tool> completion zsh > /dev/null 2>&1 && echo "支持" || echo "不支持"
-# 4. 配置补全和别名
+# 2. If installed, ask user whether to configure zsh completion
+# 3. If user agrees, check if zsh completion is supported
+<tool> completion zsh > /dev/null 2>&1 && echo "Supported" || echo "Not supported"
+# 4. Configure completion and aliases
 ```
 
-#### 常用第三方工具补全
+#### Common Third-Party Tool Completions
 
-| 工具 | 安装状态检测 | 补全命令 |
-|------|-------------|---------|
+| Tool | Installation Check | Completion Command |
+|------|-------------------|-------------------|
 | nerdctl | `which nerdctl` | `nerdctl completion zsh` |
 | helm | `which helm` | `helm completion zsh` |
 | flux | `which flux` | `flux completion zsh` |
@@ -79,88 +79,88 @@ which <tool> && <tool> version
 | istio | `which istioctl` | `istioctlx crab completion zsh` |
 | argocd | `which argocd` | `argocd completion zsh` |
 
-#### 交互示例
+#### Interaction Example
 
 ```
-检测到以下工具已安装：
+Detected the following tools are installed:
 - nerdctl v2.0.0-beta.5
 - helm v3.x
 - kubectl v1.28
 
-是否需要为以下工具配置 zsh 补全？
-[1] nerdctl - 容器管理 (推荐)
-[2] helm - Helm 图表
-[3] 全选
-[4] 跳过
+Would you like to configure zsh completion for the following tools?
+[1] nerdctl - Container management (Recommended)
+[2] helm - Helm charts
+[3] Select all
+[4] Skip
 ```
 
-### Step 6: 高级配置（可选）
+### Step 6: Advanced Configuration (Optional)
 
-#### 禁用补全询问提示
+#### Disable Completion Query Prompt
 ```zsh
-# 添加到 ~/.zshrc 在 source $ZSH/oh-my-zsh.sh 之后
+# Add to ~/.zshrc after source $ZSH/oh-my-zsh.sh
 setopt MENU_COMPLETE
 zstyle ':completion:*' verbose no
 ```
 
-#### 常用插件说明
+#### Common Plugin Descriptions
 
-| 插件 | 功能 |
-|------|------|
-| git | 提供 gst, gc, gp 等别名 |
-| docker | 提供 dps, di 等别名 |
-| kubectl | kubectl 命令补全 |
-| golang | go 命令补全 |
-| ansible | ansible-* 命令补全 |
-| archlinux | pacman 补全 |
+| Plugin | Function |
+|--------|----------|
+| git | Provides gst, gc, gp aliases |
+| docker | Provides dps, di aliases |
+| kubectl | kubectl command completion |
+| golang | go command completion |
+| ansible | ansible-* command completion |
+| archlinux | pacman completion |
 
-### Step 7: 设置默认 Shell
+### Step 7: Set Default Shell
 
 ```bash
-# 系统默认 shell
+# System default shell
 chsh -s /bin/zsh
 
-# VSCode 终端默认使用 zsh
-# 在 ~/.config/Code/User/settings.json 或 /root/.vscode-server/data/Machine/settings.json 中添加：
+# VSCode terminal default to zsh
+# Add to ~/.config/Code/User/settings.json or /root/.vscode-server/data/Machine/settings.json:
 "terminal.integrated.defaultProfile.linux": "zsh"
 ```
 
-### Step 8: 验证配置
+### Step 8: Verify Configuration
 
 ```bash
 source ~/.zshrc
 
-# 验证别名
-which gst  # 应输出: gst: aliased to git status
+# Verify aliases
+which gst  # Should output: gst: aliased to git status
 
-# 验证 nerdctl 补全
-nerdctl <Tab>  # 应显示 nerdctl 子命令补全
+# Verify nerdctl completion
+nerdctl <Tab>  # Should show nerdctl subcommand completion
 
-# 验证插件
+# Verify plugins
 echo $plugins
 ```
 
-## 迁移检查清单
+## Migration Checklist
 
-执行迁移时，逐项与用户确认：
+When executing migration, confirm each item with user:
 
 ```
-迁移检查清单：
-- [ ] 是否安装 oh-my-zsh
-- [ ] 是否备份原有 .zshrc
-- [ ] 是否迁移 .bashrc 环境变量
-- [ ] 是否配置推荐插件
-- [ ] 是否检测第三方工具 (nerdctl/helm/flux 等)
-- [ ] 是否配置第三方工具补全
-- [ ] 是否添加第三方工具别名
-- [ ] 是否设置补全优化
-- [ ] 是否设置默认 shell
-- [ ] 是否配置 VSCode
+Migration Checklist:
+- [ ] Is oh-my-zsh installed
+- [ ] Is original .zshrc backed up
+- [ ] Are .bashrc environment variables migrated
+- [ ] Are recommended plugins configured
+- [ ] Are third-party tools detected (nerdctl/helm/flux, etc.)
+- [ ] Are third-party tool completions configured
+- [ ] Are third-party tool aliases added
+- [ ] Is completion optimization set
+- [ ] Is default shell set
+- [ ] Is VSCode configured
 ```
 
-## 不迁移的配置
+## Configurations NOT to Migrate
 
-以下内容通常**不需要迁移**到 zsh：
-- Bash 特定语法（如 `[[ ]]` 可保留但 zsh 不需要）
-- `~/.bash_aliases`（应直接合并到 .zshrc）
-- Bash 完成脚本（oh-my-zsh 已有更好的补全）
+The following typically do **NOT need to be migrated** to zsh:
+- Bash-specific syntax (e.g., `[[ ]]` can be kept but not needed in zsh)
+- `~/.bash_aliases` (should be merged directly into .zshrc)
+- Bash completion scripts (oh-my-zsh has better completion built-in)
