@@ -78,15 +78,56 @@ Repeat for any subfolder >= 1 GB. Do NOT stop at a high-level summary.
 
 The agent should infer what each discovered item is from the folder name, parent path, and contents — not from a hardcoded lookup table. Every WSL environment is different.
 
-### Step 4: Present Findings and Confirm
+### Step 4: Content Analysis — Understand Before Presenting
+
+Before presenting findings to the user, the agent MUST proactively analyze each discovered space consumer to determine what it is, why it exists, and what happens if it's removed. The goal: users should be able to make confident decisions in a single round of interaction, without needing to ask "what is this?" for each item.
+
+**For each item >= 1 GB (or in the top 10 by size), the agent should:**
+
+1. **Identify the owner application**: Infer from the path structure (e.g., `/root/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks` → VS Code Remote extension Kilo-Code's task history). Check for config files, README, package.json, or recognizable directory patterns inside the folder.
+
+2. **Sample the contents**: List representative files/subdirectories to distinguish "cache that regenerates" from "user data that's gone forever":
+   ```bash
+   wsl.exe -d <distro> -e bash -c "ls -lahS <path> | head -15"
+   ```
+   Also check file timestamps to understand if the data is recent or stale:
+   ```bash
+   wsl.exe -d <distro> -e bash -c "find <path> -maxdepth 1 -type f -printf '%T+ %s %p\n' | sort -r | head -10"
+   ```
+
+3. **Classify the item** into one of these categories:
+   - **Cache / Temp**: Auto-regenerated on next use. Safe to delete. Examples: pip cache, npm cache, Go module cache, Docker build cache, apt cache, cargo registry.
+   - **Logs**: Historical records, usually not needed. Safe to delete, but note that debugging info is lost. Examples: journal logs, application logs, build logs.
+   - **Old versions / unused runtimes**: Previous tool versions, unused SDK installs. Safe if the current version works.
+   - **Package manager store**: Shared dependency store (e.g., pnpm store, Yarn cache, Go module cache). Safe to delete but will re-download on next use.
+   - **Build artifacts / intermediates**: Compiled outputs, `node_modules`, `target/`, `.build/`. Safe to delete, will rebuild on next compile.
+   - **Application data**: User-generated or critical data (databases, configs, project files, git repos). NOT safe — warn the user explicitly.
+   - **Container / VM data**: Docker images, layers, volumes. May contain important data — check with user.
+
+4. **Assess deletion impact**: Clearly state what happens after deletion:
+   - "Will be rebuilt automatically next time VS Code connects to WSL" (zero user impact)
+   - "You'll need to re-download packages on next build, may take a few minutes" (minor inconvenience)
+   - "Contains your project databases — cannot be recovered" (data loss risk)
+
+5. **Give a safety verdict**: Use clear labels:
+   - ✅ Safe to clean — no user impact
+   - ⚠️ Low risk — minor inconvenience (explain what)
+   - ❌ Not recommended — contains user data or critical application state
+
+### Step 5: Present Findings and Confirm
 
 Compile all discovered items into a numbered list, sorted by size descending. For each item:
 - Size
 - Full path
-- Brief description (what it appears to be)
-- Safety assessment (safe to clean / ask user / don't touch)
+- What it is and what application it belongs to (from Step 4 analysis — NOT a vague guess)
+- Deletion impact: what will happen if removed (specific, not generic)
+- Safety verdict with label
 
-Use `AskUserQuestion` to let the user select which items to clean.
+The descriptions should be written in natural language that a non-technical user can understand. Avoid jargon. For example:
+- GOOD: "VS Code Remote (Kilo-Code extension) task history (39 GB) — stores logs and intermediate files from AI-assisted coding tasks. Deleting this only removes old task records; VS Code and the extension will continue to work normally and create new task logs as needed."
+- BAD: "Kilo-Code tasks, probably cache, safe to clean."
+
+Use `AskUserQuestion` to let the user select which items to clean. Group items by safety level so safe items are easy to batch-select.
 
 ## Phase 3: Clean Inside WSL
 
@@ -230,14 +271,32 @@ Filesystem  Size  Used Avail Use%
 
 Keep drilling every branch until you reach the actual item consuming space.
 
-### 3. Present Findings to User (example output)
+### 3. Content Analysis + Present Findings (example output)
+
+The agent samples each directory's contents, then presents rich descriptions:
 
 ```
-1. Kilo-Code task history — 39 GB    /root/.vscode-server/.../kilocode.kilo-code/tasks
-2. Zarf image cache — 26 GB          /root/.zarf-cache/images
-3. OpenCode logs — 11 GB             /root/.local/share/opencode/log
-4. kapp cache — 5.9 GB               /root/.kapp
-5. ...
+1. ✅ VS Code Remote — Kilo-Code task history (39 GB)
+   /root/.vscode-server/data/User/globalStorage/kilocode.kilo-code/tasks
+   AI coding assistant's old task logs and intermediate files. Contains 2,847 task
+   folders dated 2024-08 to 2025-03. Deleting removes historical records only;
+   VS Code and the extension will continue working and create new logs as needed.
+
+2. ✅ Zarf image cache (26 GB)
+   /root/.zarf-cache/images
+   Cached OCI container images downloaded by Zarf during package builds. Will be
+   re-downloaded automatically on next `zarf package create`. No data loss.
+
+3. ✅ OpenCode application logs (11 GB)
+   /root/.local/share/opencode/log
+   Debug and session logs from the OpenCode CLI tool. 4,200+ log files, oldest
+   from 2024-06. Safe to remove — only historical debugging info is lost.
+
+4. ⚠️ kapp tool data (5.9 GB)
+   /root/.kapp
+   Kubernetes app deployment tool cache. Contains deployed app state tracking.
+   Low risk: will re-fetch on next deploy, but in-progress deployments may need
+   to be re-applied.
 ```
 
 Ask user which items to clean → User selects 1, 2, 3, 4.
