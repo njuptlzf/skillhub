@@ -66,15 +66,51 @@ $systemPaths = @(
 )
 ```
 
-### Step 6: Present Findings
+### Step 6: Content Analysis — Understand Before Presenting
+
+Before presenting findings to the user, the agent MUST proactively analyze each discovered space consumer to determine what it is, why it exists, and what happens if it's removed. The goal: users should be able to make confident decisions in a single round of interaction, without needing to ask "what is this?" for each item.
+
+**For each item >= 1 GB (or in the top 10 by size), the agent should:**
+
+1. **Identify the owner application**: Infer from the path structure (e.g., `AppData\Local\Google\Chrome\User Data\Default\Cache` → Chrome browser cache). Check for version folders, app manifests, or recognizable directory patterns.
+
+2. **Sample the contents**: List a few representative files inside the directory — file types, naming patterns, timestamps. This helps distinguish between "cache that regenerates automatically" vs "user data that's gone forever".
+   ```powershell
+   Get-ChildItem '<path>' -Force | Select-Object Name, Length, LastWriteTime | Sort-Object Length -Descending | Select-Object -First 10
+   ```
+
+3. **Classify the item** into one of these categories:
+   - **Cache / Temp**: Auto-regenerated on next use. Safe to delete. Examples: browser cache, npm cache, pip cache, NuGet packages, build intermediates.
+   - **Logs**: Historical records, usually not needed. Safe to delete, but note that debugging info is lost.
+   - **Old versions / installers**: Previous versions of software kept alongside current versions. Safe if the current version works fine.
+   - **Package manager store**: Shared dependency store (e.g., pnpm store, Yarn cache, Maven repo). Safe to delete but will re-download on next install.
+   - **Application data**: User-generated or app-critical data (databases, configs, project files). NOT safe — warn the user explicitly.
+   - **System-managed**: Windows-controlled directories (WinSxS, Installer). Use only official tools.
+
+4. **Assess deletion impact**: Clearly state what happens after deletion:
+   - "Will be rebuilt automatically next time you open Chrome" (zero user impact)
+   - "You'll need to re-download packages on next `npm install`, may take a few minutes" (minor inconvenience)
+   - "Contains your project databases — cannot be recovered" (data loss risk)
+
+5. **Give a safety verdict**: Use clear labels:
+   - ✅ Safe to clean — no user impact
+   - ⚠️ Low risk — minor inconvenience (explain what)
+   - ❌ Not recommended — contains user data or critical application state
+
+### Step 7: Present Findings
 
 Compile all discovered items into a single numbered list, sorted by size descending. For each item include:
 - Size
 - Full path
-- Brief description of what it is (the agent should infer this from the folder name, parent path, and contents — not from a hardcoded lookup table)
-- Whether it's safe to clean and any caveats
+- What it is and what application it belongs to (from Step 6 analysis — NOT a vague guess)
+- Deletion impact: what will happen if removed (specific, not generic)
+- Safety verdict with label
 
-Use `AskUserQuestion` to let the user select which items to clean. Also always offer system-level cleanup tools:
+The descriptions should be written in natural language that a non-technical user can understand. Avoid jargon. For example:
+- GOOD: "Chrome browser cache (15.3 GB) — temporary files Chrome uses to load websites faster. Will be rebuilt automatically as you browse. No data loss."
+- BAD: "Cache directory, safe to clean."
+
+Use `AskUserQuestion` to let the user select which items to clean. Group items by safety level so safe items are easy to batch-select. Also always offer system-level cleanup tools:
 
 ```powershell
 # Windows component store cleanup (elevated)
